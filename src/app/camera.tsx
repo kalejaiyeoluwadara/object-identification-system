@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { Camera, CameraType, FlashMode, CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
 import * as MediaLibrary from "expo-media-library";
+import * as FileSystem from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function CameraScreen() {
@@ -39,13 +40,23 @@ export default function CameraScreen() {
           base64: false,
         });
 
+        // Save to a permanent location in the app's documents directory
+        const fileName = `object_detection_${Date.now()}.jpg`;
+        const permanentUri = `${FileSystem.documentDirectory}${fileName}`;
+
+        // Copy the temporary file to permanent location
+        await FileSystem.copyAsync({
+          from: photo.uri,
+          to: permanentUri,
+        });
+
         if (hasMediaLibraryPermission) {
           await MediaLibrary.saveToLibraryAsync(photo.uri);
         }
 
         router.push({
           pathname: "/result",
-          params: { imageUri: photo.uri },
+          params: { imageUri: permanentUri },
         });
       } catch (error) {
         Alert.alert("Error", "Failed to take picture");

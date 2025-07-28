@@ -30,7 +30,18 @@ const base64ToUint8Array = (base64: string): Uint8Array => {
 
 export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
   try {
+    console.log("Starting object detection for image:", imageUri);
+
+    // Check if file exists
+    const fileInfo = await FileSystem.getInfoAsync(imageUri);
+    if (!fileInfo.exists) {
+      throw new Error(`Image file does not exist: ${imageUri}`);
+    }
+
+    console.log("File exists, size:", fileInfo.size);
+
     if (!model) {
+      console.log("Initializing model...");
       await initializeModel();
     }
 
@@ -38,20 +49,28 @@ export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
       throw new Error("Model failed to initialize");
     }
 
+    console.log("Loading image data...");
     // Load image data using FileSystem instead of fetch
     const imageData = await FileSystem.readAsStringAsync(imageUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
+    console.log("Image data loaded, length:", imageData.length);
+
     // Convert base64 to Uint8Array
     const imageBytes = base64ToUint8Array(imageData);
+    console.log("Image bytes converted, length:", imageBytes.length);
+
     const imageTensor = decodeJpeg(imageBytes);
+    console.log("Image tensor created");
 
     // Perform object detection
+    console.log("Running object detection...");
     const predictions = await model.detect(imageTensor);
 
     // Clean up tensor
     imageTensor.dispose();
+    console.log("Detection complete, found", predictions.length, "objects");
 
     // Convert predictions to our Detection interface
     const detections: Detection[] = predictions.map((prediction: any) => ({
@@ -60,7 +79,16 @@ export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
       score: prediction.score,
     }));
 
-    return detections.filter((detection) => detection.score > 0.5); // Filter low confidence detections
+    const filteredDetections = detections.filter(
+      (detection) => detection.score > 0.5
+    );
+    console.log(
+      "Filtered to",
+      filteredDetections.length,
+      "high-confidence detections"
+    );
+
+    return filteredDetections;
   } catch (error) {
     console.error("Object detection failed:", error);
     throw error;
