@@ -3,6 +3,7 @@ import "@tensorflow/tfjs-react-native";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import { decodeJpeg } from "@tensorflow/tfjs-react-native";
 import { Detection } from "./types";
+import * as FileSystem from "expo-file-system";
 
 let model: cocoSsd.ObjectDetection | null = null;
 
@@ -17,6 +18,16 @@ export const initializeModel = async (): Promise<void> => {
   }
 };
 
+// Helper function to convert base64 to Uint8Array
+const base64ToUint8Array = (base64: string): Uint8Array => {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
+
 export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
   try {
     if (!model) {
@@ -27,14 +38,14 @@ export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
       throw new Error("Model failed to initialize");
     }
 
-    // Load and preprocess the image
-    const response = await fetch(imageUri, {
-      headers: {
-        "Content-Type": "application/octet-stream",
-      },
+    // Load image data using FileSystem instead of fetch
+    const imageData = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
     });
-    const imageData = await response.arrayBuffer();
-    const imageTensor = decodeJpeg(new Uint8Array(imageData));
+
+    // Convert base64 to Uint8Array
+    const imageBytes = base64ToUint8Array(imageData);
+    const imageTensor = decodeJpeg(imageBytes);
 
     // Perform object detection
     const predictions = await model.detect(imageTensor);
