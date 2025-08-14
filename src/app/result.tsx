@@ -12,6 +12,7 @@ export default function ResultScreen() {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingStep, setLoadingStep] = useState<string>("Initializing...");
 
   useEffect(() => {
     if (imageUri) {
@@ -23,6 +24,12 @@ export default function ResultScreen() {
     try {
       setIsLoading(true);
       setError(null);
+      setLoadingStep("Loading model...");
+
+      // Add a small delay to show the loading step
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      setLoadingStep("Processing image...");
       const results = await detectObjects(imageUri);
       setDetections(results);
     } catch (err) {
@@ -88,8 +95,11 @@ export default function ResultScreen() {
           {isLoading && (
             <View className="py-12">
               <LoadingSpinner />
-              <Text className="text-gray-400 text-center mt-4">
-                Analyzing image...
+              <Text className="text-gray-400 text-center mt-4 text-lg">
+                {loadingStep}
+              </Text>
+              <Text className="text-gray-500 text-center mt-2 text-sm">
+                This may take a few seconds...
               </Text>
             </View>
           )}

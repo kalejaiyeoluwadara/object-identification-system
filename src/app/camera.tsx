@@ -36,8 +36,10 @@ export default function CameraScreen() {
         setIsCapturing(true);
         // CameraView exposes a takePhoto method
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
+          quality: 0.6, // Reduced quality for faster processing
           base64: false,
+          exif: false, // Disable EXIF data to reduce file size
+          skipProcessing: true, // Skip additional processing for speed
         });
 
         // Save to a permanent location in the app's documents directory

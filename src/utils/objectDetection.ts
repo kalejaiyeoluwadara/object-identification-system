@@ -10,7 +10,11 @@ let model: cocoSsd.ObjectDetection | null = null;
 export const initializeModel = async (): Promise<void> => {
   try {
     await tf.ready();
-    model = await cocoSsd.load();
+    // Use a lighter model configuration for better performance
+    model = await cocoSsd.load({
+      base: "mobilenet_v2", // Use MobileNet for faster inference
+      modelUrl: undefined, // Use default model
+    });
     console.log("Object detection model loaded successfully");
   } catch (error) {
     console.error("Failed to load model:", error);
@@ -62,14 +66,25 @@ export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
     console.log("Image bytes converted, length:", imageBytes.length);
 
     const imageTensor = decodeJpeg(imageBytes);
-    console.log("Image tensor created");
+    console.log("Image tensor created, shape:", imageTensor.shape);
 
-    // Perform object detection
-    console.log("Running object detection...");
-    const predictions = await model.detect(imageTensor);
+    // Resize image to smaller size for faster processing
+    const targetSize = 512; // Reduced from default size
+    const resizedTensor = tf.image.resizeBilinear(imageTensor, [
+      targetSize,
+      targetSize,
+    ]);
+    console.log("Image resized to:", targetSize, "x", targetSize);
 
-    // Clean up tensor
+    // Clean up original tensor to free memory
     imageTensor.dispose();
+
+    // Perform object detection on resized image
+    console.log("Running object detection...");
+    const predictions = await model.detect(resizedTensor);
+
+    // Clean up resized tensor
+    resizedTensor.dispose();
     console.log("Detection complete, found", predictions.length, "objects");
 
     // Convert predictions to our Detection interface
@@ -79,13 +94,14 @@ export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
       score: prediction.score,
     }));
 
+    // Lower confidence threshold for faster results, but still filter very low confidence
     const filteredDetections = detections.filter(
-      (detection) => detection.score > 0.5
+      (detection) => detection.score > 0.3
     );
     console.log(
       "Filtered to",
       filteredDetections.length,
-      "high-confidence detections"
+      "detections (threshold: 0.3)"
     );
 
     return filteredDetections;
