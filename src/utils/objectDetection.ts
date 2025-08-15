@@ -1,36 +1,7 @@
-import * as tf from "@tensorflow/tfjs";
-import "@tensorflow/tfjs-react-native";
-import * as cocoSsd from "@tensorflow-models/coco-ssd";
-import { decodeJpeg } from "@tensorflow/tfjs-react-native";
 import { Detection } from "./types";
 import * as FileSystem from "expo-file-system";
 
-let model: cocoSsd.ObjectDetection | null = null;
-
-export const initializeModel = async (): Promise<void> => {
-  try {
-    await tf.ready();
-    // Use a lighter model configuration for better performance
-    model = await cocoSsd.load({
-      base: "mobilenet_v2", // Use MobileNet for faster inference
-      modelUrl: undefined, // Use default model
-    });
-    console.log("Object detection model loaded successfully");
-  } catch (error) {
-    console.error("Failed to load model:", error);
-    throw error;
-  }
-};
-
-// Helper function to convert base64 to Uint8Array
-const base64ToUint8Array = (base64: string): Uint8Array => {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-};
+const API_ENDPOINT = "https://gemini-api-46ez.onrender.com/vision/identify";
 
 export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
   try {
@@ -44,67 +15,48 @@ export const detectObjects = async (imageUri: string): Promise<Detection[]> => {
 
     console.log("File exists, size:", fileInfo.size);
 
-    if (!model) {
-      console.log("Initializing model...");
-      await initializeModel();
-    }
-
-    if (!model) {
-      throw new Error("Model failed to initialize");
-    }
-
-    console.log("Loading image data...");
-    // Load image data using FileSystem instead of fetch
+    // Read the image file as base64
     const imageData = await FileSystem.readAsStringAsync(imageUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
     console.log("Image data loaded, length:", imageData.length);
 
-    // Convert base64 to Uint8Array
-    const imageBytes = base64ToUint8Array(imageData);
-    console.log("Image bytes converted, length:", imageBytes.length);
+    // Create form data to send the image
+    const formData = new FormData();
+    formData.append("image", {
+      uri: imageUri,
+      type: "image/jpeg",
+      name: "image.jpg",
+    } as any);
 
-    const imageTensor = decodeJpeg(imageBytes);
-    console.log("Image tensor created, shape:", imageTensor.shape);
+    console.log("Sending request to API...");
 
-    // Resize image to smaller size for faster processing
-    const targetSize = 512; // Reduced from default size
-    const resizedTensor = tf.image.resizeBilinear(imageTensor, [
-      targetSize,
-      targetSize,
-    ]);
-    console.log("Image resized to:", targetSize, "x", targetSize);
+    // Make the API request
+    const response = await fetch(API_ENDPOINT, {
+      method: "POST",
+      body: formData,
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
-    // Clean up original tensor to free memory
-    imageTensor.dispose();
+    if (!response.ok) {
+      throw new Error(
+        `API request failed: ${response.status} ${response.statusText}`
+      );
+    }
 
-    // Perform object detection on resized image
-    console.log("Running object detection...");
-    const predictions = await model.detect(resizedTensor);
+    const result = await response.json();
+    console.log("API response:", result);
 
-    // Clean up resized tensor
-    resizedTensor.dispose();
-    console.log("Detection complete, found", predictions.length, "objects");
+    // Convert the API response to our Detection interface
+    const detection: Detection = {
+      itemname: result.itemname,
+      description: result.description,
+    };
 
-    // Convert predictions to our Detection interface
-    const detections: Detection[] = predictions.map((prediction: any) => ({
-      bbox: prediction.bbox as [number, number, number, number],
-      class: prediction.class,
-      score: prediction.score,
-    }));
-
-    // Lower confidence threshold for faster results, but still filter very low confidence
-    const filteredDetections = detections.filter(
-      (detection) => detection.score > 0.3
-    );
-    console.log(
-      "Filtered to",
-      filteredDetections.length,
-      "detections (threshold: 0.3)"
-    );
-
-    return filteredDetections;
+    return [detection];
   } catch (error) {
     console.error("Object detection failed:", error);
     throw error;

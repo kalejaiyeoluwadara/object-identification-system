@@ -24,12 +24,12 @@ export default function ResultScreen() {
     try {
       setIsLoading(true);
       setError(null);
-      setLoadingStep("Loading model...");
+      setLoadingStep("Processing image...");
 
       // Add a small delay to show the loading step
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      setLoadingStep("Processing image...");
+      setLoadingStep("Analyzing with AI...");
       const results = await detectObjects(imageUri);
       setDetections(results);
     } catch (err) {
@@ -41,19 +41,8 @@ export default function ResultScreen() {
   };
 
   const retakePicture = () => {
-    router.back();
-  };
-
-  const getConfidenceColor = (score: number) => {
-    if (score >= 0.8) return "text-green-400";
-    if (score >= 0.6) return "text-yellow-400";
-    return "text-red-400";
-  };
-
-  const getConfidenceText = (score: number) => {
-    if (score >= 0.8) return "High";
-    if (score >= 0.6) return "Medium";
-    return "Low";
+    // Navigate back to camera screen, which will trigger camera reinitialization
+    router.push("/camera");
   };
 
   if (!imageUri) {
@@ -126,11 +115,10 @@ export default function ResultScreen() {
                 <>
                   <View className="bg-gray-900/50 rounded-lg p-4 mb-6">
                     <Text className="text-white text-lg font-semibold mb-2">
-                      Detection Summary
+                      Analysis Summary
                     </Text>
                     <Text className="text-gray-300">
-                      Found {detections.length} object
-                      {detections.length !== 1 ? "s" : ""} in the image
+                      AI has analyzed your image and identified the object
                     </Text>
                   </View>
 
@@ -140,47 +128,16 @@ export default function ResultScreen() {
                         key={index}
                         className="bg-gray-900/30 border border-gray-700 rounded-lg p-4"
                       >
-                        <View className="flex-row justify-between items-start mb-3">
-                          <Text className="text-white text-xl font-semibold capitalize flex-1">
-                            {detection.class}
+                        <View className="mb-3">
+                          <Text className="text-white text-xl font-semibold capitalize">
+                            {detection.itemname}
                           </Text>
-                          <View className="bg-gray-800 px-3 py-1 rounded-full">
-                            <Text
-                              className={`font-semibold ${getConfidenceColor(detection.score)}`}
-                            >
-                              {getConfidenceText(detection.score)}
-                            </Text>
-                          </View>
                         </View>
 
-                        <View className="flex-row justify-between items-center">
-                          <Text className="text-gray-400">
-                            Confidence: {(detection.score * 100).toFixed(1)}%
+                        <View className="bg-gray-800 rounded-lg p-3">
+                          <Text className="text-gray-300 text-sm leading-relaxed">
+                            {detection.description}
                           </Text>
-                          <View className="flex-row items-center">
-                            <Ionicons
-                              name="location"
-                              size={16}
-                              color="#9ca3af"
-                            />
-                            <Text className="text-gray-400 ml-1">
-                              ({detection.bbox[0].toFixed(0)},{" "}
-                              {detection.bbox[1].toFixed(0)})
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View className="mt-3 bg-gray-800 rounded h-2">
-                          <View
-                            className={`h-full rounded ${
-                              detection.score >= 0.8
-                                ? "bg-green-500"
-                                : detection.score >= 0.6
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
-                            }`}
-                            style={{ width: `${detection.score * 100}%` }}
-                          />
                         </View>
                       </View>
                     ))}
@@ -190,11 +147,11 @@ export default function ResultScreen() {
                 <View className="bg-gray-900/30 border border-gray-700 rounded-lg p-8 text-center">
                   <Ionicons name="search" size={48} color="#6b7280" />
                   <Text className="text-gray-300 text-lg font-semibold mt-4 text-center">
-                    No Objects Detected
+                    No Objects Identified
                   </Text>
                   <Text className="text-gray-400 mt-2 text-center">
-                    Try taking a photo with more recognizable objects or better
-                    lighting.
+                    Try taking a photo with a clearer view of the object you
+                    want to identify.
                   </Text>
                 </View>
               )}

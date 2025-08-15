@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { Camera, CameraType, FlashMode, CameraView } from "expo-camera";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as MediaLibrary from "expo-media-library";
 import * as FileSystem from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +16,8 @@ export default function CameraScreen() {
   const [cameraType, setCameraType] = useState("back");
   const [flashMode, setFlashMode] = useState("off");
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [key, setKey] = useState(0); // Force re-render key
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
@@ -30,8 +32,26 @@ export default function CameraScreen() {
     })();
   }, []);
 
+  // Handle camera focus/unfocus to restart camera when returning
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset camera state when screen comes into focus
+      setIsCameraReady(false);
+      setKey((prev) => prev + 1); // Force camera re-render
+
+      return () => {
+        // Cleanup when screen loses focus
+        setIsCameraReady(false);
+      };
+    }, [])
+  );
+
+  const handleCameraReady = () => {
+    setIsCameraReady(true);
+  };
+
   const takePicture = async () => {
-    if (cameraRef.current && !isCapturing) {
+    if (cameraRef.current && !isCapturing && isCameraReady) {
       try {
         setIsCapturing(true);
         // CameraView exposes a takePhoto method
@@ -71,10 +91,17 @@ export default function CameraScreen() {
 
   const toggleCameraType = () => {
     setCameraType((current) => (current === "back" ? "front" : "back"));
+    // Force camera restart when switching types
+    setKey((prev) => prev + 1);
   };
 
   const toggleFlash = () => {
     setFlashMode((current) => (current === "off" ? "on" : "off"));
+  };
+
+  const restartCamera = () => {
+    setKey((prev) => prev + 1);
+    setIsCameraReady(false);
   };
 
   if (hasCameraPermission === null) {
@@ -105,11 +132,13 @@ export default function CameraScreen() {
   return (
     <View className="flex-1 bg-black">
       <CameraView
+        key={key} // Force re-render when key changes
         ref={cameraRef}
         style={{ flex: 1 }}
         facing={cameraType as CameraType}
         flash={flashMode as FlashMode}
         ratio="16:9"
+        onCameraReady={handleCameraReady}
       >
         <View className="flex-1 justify-between">
           {/* Top Controls */}
@@ -155,20 +184,39 @@ export default function CameraScreen() {
             <View className="flex-row justify-center items-center">
               <TouchableOpacity
                 onPress={takePicture}
-                disabled={isCapturing}
+                disabled={isCapturing || !isCameraReady}
                 className={`w-20 h-20 rounded-full border-4 border-white justify-center items-center ${
-                  isCapturing ? "bg-gray-600" : "bg-white/20"
+                  isCapturing || !isCameraReady ? "bg-gray-600" : "bg-white/20"
                 }`}
               >
                 {isCapturing ? (
                   <View className="w-4 h-4 bg-white rounded" />
+                ) : !isCameraReady ? (
+                  <View className="w-4 h-4 bg-gray-400 rounded" />
                 ) : (
                   <View className="w-16 h-16 bg-white rounded-full" />
                 )}
               </TouchableOpacity>
             </View>
+
+            {/* Camera Status and Restart Button */}
+            <View className="flex-row justify-center items-center mt-4 space-x-4">
+              {!isCameraReady && (
+                <TouchableOpacity
+                  onPress={restartCamera}
+                  className="bg-blue-600 px-4 py-2 rounded-lg"
+                >
+                  <Text className="text-white font-semibold">
+                    Restart Camera
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             <Text className="text-white/60 text-center text-sm mt-4">
-              Tap to capture and analyze objects
+              {isCameraReady
+                ? "Tap to capture and analyze objects"
+                : "Camera initializing..."}
             </Text>
           </View>
         </View>
