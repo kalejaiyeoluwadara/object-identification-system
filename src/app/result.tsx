@@ -29,7 +29,7 @@ export default function ResultScreen() {
       // Add a small delay to show the loading step
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      setLoadingStep("Analyzing with AI...");
+      setLoadingStep("Analyzing your image...");
       const results = await detectObjects(imageUri);
       setDetections(results);
     } catch (err) {
@@ -118,7 +118,7 @@ export default function ResultScreen() {
                       Analysis Summary
                     </Text>
                     <Text className="text-gray-300">
-                      AI has analyzed your image and identified the object
+                      Analyzed your image and identified the object
                     </Text>
                   </View>
 
